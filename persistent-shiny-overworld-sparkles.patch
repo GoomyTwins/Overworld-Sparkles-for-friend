@@ -1,0 +1,434 @@
+diff --git a/graphics/field_effects/palettes/persistent_shiny_glint.pal b/graphics/field_effects/palettes/persistent_shiny_glint.pal
+new file mode 100644
+index 0000000..7fda737
+--- /dev/null
++++ b/graphics/field_effects/palettes/persistent_shiny_glint.pal
+@@ -0,0 +1,7 @@
++JASC-PAL
++0100
++4
++0 0 0
++199 236 255
++137 190 218
++255 255 248
+diff --git a/graphics/field_effects/pics/persistent_shiny_glint.png b/graphics/field_effects/pics/persistent_shiny_glint.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..acd2e28b7481c308f3172884a174691fd7511b74
+GIT binary patch
+literal 345
+zcmeAS@N?(olHy`uVBq!ia0vp^3P8-k!3-qVNAu1F2_$<2`7$t6sWC7#v@kII0tz*}
+zU|=XUU|@Kaz`$TNgMmT3V9u^U8=wSFfKP}kkUswAf9Jki|NsAZS8JsJ<TI88`2{mL
+zJiCzw<gk}``ns~e;$q_9k&O~E09mD4;u=wsl30>zm0Xkxq!^40jLdWm4Rj5RLJTad
+z3=OS}473dltPBiR9dO!-q9HdwB{QuOw}#tuf3X5JXuxeK$;?eHE=kNSK-XhrWn>Al
+z<deE8C`i;iT^vIsE+;1_FdGO>NJvU+GP<B5F;h}e#JGhq+~WqzqPq@q3=Gn24Eh}A
+R5tcw544$rjF6*2UngF?0S%Clm
+
+literal 0
+HcmV?d00001
+
+diff --git a/include/constants/field_effects.h b/include/constants/field_effects.h
+--- a/include/constants/field_effects.h
++++ b/include/constants/field_effects.h
+@@ -140,3 +140,4 @@
+ #define FLDEFF_PAL_TAG_DUST_CLOUD         0x1013
+ #define FLDEFF_PAL_TAG_ORAS_DOWSE         0x1014
++#define FLDEFF_PAL_TAG_PERSISTENT_GLINT   0x1015
+ #define FLDEFF_PAL_TAG_FIELD_MOVE_MON     0x8400
+diff --git a/include/field_effect_helpers.h b/include/field_effect_helpers.h
+--- a/include/field_effect_helpers.h
++++ b/include/field_effect_helpers.h
+@@ -38,3 +38,5 @@
+ void UpdateBubblesFieldEffect(struct Sprite *sprite);
+ void UpdateSparkleFieldEffect(struct Sprite *sprite);
++void UpdatePersistentShinySparkle(struct Sprite *sprite);
++void StartPersistentShinySparkles(void);
+ void SetSpriteInvisible(u8 spriteId);
+diff --git a/src/data/field_effects/field_effect_objects.h b/src/data/field_effects/field_effect_objects.h
+--- a/src/data/field_effects/field_effect_objects.h
++++ b/src/data/field_effects/field_effect_objects.h
+@@ -730,3 +730,37 @@ const struct SpriteTemplate gFieldEffectObjectTemplate_ShinySparkle = {
+     .affineAnims = gDummySpriteAffineAnimTable,
+     .callback = UpdateBubblesFieldEffect,
+ };
++
++static const struct SpriteFrameImage sPicTable_PersistentShinyGlint[] = {
++    overworld_frame(gFieldEffectObjectPic_PersistentShinyGlint, 1, 1, 0),
++    overworld_frame(gFieldEffectObjectPic_PersistentShinyGlint, 1, 1, 1),
++    overworld_frame(gFieldEffectObjectPic_PersistentShinyGlint, 1, 1, 2),
++    overworld_frame(gFieldEffectObjectPic_PersistentShinyGlint, 1, 1, 3),
++};
++
++static const union AnimCmd sAnim_PersistentShinyGlint[] = {
++    ANIMCMD_FRAME(0, 3),
++    ANIMCMD_FRAME(1, 4),
++    ANIMCMD_FRAME(2, 4),
++    ANIMCMD_FRAME(3, 4),
++    ANIMCMD_END,
++};
++
++static const union AnimCmd *const sAnimTable_PersistentShinyGlint[] = {
++    sAnim_PersistentShinyGlint,
++};
++
++const struct SpritePalette gSpritePalette_PersistentGlint = {
++    gFieldEffectPalette_PersistentGlint,
++    FLDEFF_PAL_TAG_PERSISTENT_GLINT
++};
++
++const struct SpriteTemplate gFieldEffectObjectTemplate_PersistentShinySparkle = {
++    .tileTag = TAG_NONE,
++    .paletteTag = FLDEFF_PAL_TAG_PERSISTENT_GLINT,
++    .oam = &gObjectEventBaseOam_8x8,
++    .anims = sAnimTable_PersistentShinyGlint,
++    .images = sPicTable_PersistentShinyGlint,
++    .affineAnims = gDummySpriteAffineAnimTable,
++    .callback = UpdatePersistentShinySparkle,
++};
+diff --git a/src/data/object_events/object_event_graphics.h b/src/data/object_events/object_event_graphics.h
+--- a/src/data/object_events/object_event_graphics.h
++++ b/src/data/object_events/object_event_graphics.h
+@@ -880,3 +880,5 @@
+ const u32 gObjectEventPic_ApricornTree[] = INCGFX_U32("graphics/object_events/pics/misc/apricorn_tree.png", ".4bpp", "-mwidth 2 -mheight 2");
+ 
+ const u32 gFieldEffectObjectPic_ShinySparkle[] = INCGFX_U32("graphics/field_effects/pics/shiny_sparkle.png", ".4bpp", "-mwidth 2 -mheight 4");
++const u16 gFieldEffectPalette_PersistentGlint[] = INCGFX_U16("graphics/field_effects/palettes/persistent_shiny_glint.pal", ".gbapal");
++const u32 gFieldEffectObjectPic_PersistentShinyGlint[] = INCGFX_U32("graphics/field_effects/pics/persistent_shiny_glint.png", ".4bpp", "-mwidth 1 -mheight 1");
+diff --git a/src/event_object_movement.c b/src/event_object_movement.c
+--- a/src/event_object_movement.c
++++ b/src/event_object_movement.c
+@@ -12520,4 +12520,6 @@ void UpdateFollowingPokemon(void)
+         FollowerSetGraphics(objEvent, species, shiny, female);
+         objEvent->invisible = TRUE;
++        if (shiny)
++            StartPersistentShinySparkles();
+     }
+     sprite->data[6] = 0; // set animation data
+diff --git a/src/field_effect_helpers.c b/src/field_effect_helpers.c
+--- a/src/field_effect_helpers.c
++++ b/src/field_effect_helpers.c
+@@ -1540,5 +1540,11 @@ void UpdateSparkleFieldEffect(struct Sprite *sprite)
+         FieldEffectStop(sprite, FLDEFF_SPARKLE);
+ }
+ 
++void UpdatePersistentShinySparkle(struct Sprite *sprite)
++{
++    if (sprite->animEnded)
++        DestroySprite(sprite);
++}
++
+ #undef sFinished
+ #undef sEndTimer
+diff --git a/src/overworld.c b/src/overworld.c
+--- a/src/overworld.c
++++ b/src/overworld.c
+@@ -2030,6 +2030,10 @@ static bool32 ReturnToFieldLocal(u8 *state)
+         if (gFieldCallback == FieldCallback_UseFly)
+             RemoveFollowingPokemon();
+         else
++        {
+             UpdateFollowingPokemon();
++            StartPersistentShinySparkles();
++        }
+         SetCameraToTrackPlayer();
+@@ -2260,3 +2264,4 @@ static void InitObjectEventsLocal(void)
+     TrySpawnObjectEvents(0, 0);
+     FollowerNPC_HandleSprite();
+     UpdateFollowingPokemon();
++    StartPersistentShinySparkles();
+     TryRunOnWarpIntoMapScript();
+diff --git a/src/persistent_shiny_sparkle.c b/src/persistent_shiny_sparkle.c
+new file mode 100644
+--- /dev/null
++++ b/src/persistent_shiny_sparkle.c
+@@ -0,0 +1,291 @@
++#include "global.h"
++#include "event_object_movement.h"
++#include "field_effect.h"
++#include "field_effect_helpers.h"
++#include "palette.h"
++#include "random.h"
++#include "sprite.h"
++#include "task.h"
++#include "constants/event_objects.h"
++
++extern const struct SpriteTemplate gFieldEffectObjectTemplate_PersistentShinySparkle;
++extern const struct SpritePalette gSpritePalette_PersistentGlint;
++
++#define PERSISTENT_SPARKLE_SLOT_COUNT 4
++#define PERSISTENT_SPARKLE_MARKER     0x4C53
++#define PERSISTENT_SPARKLE_PERIOD     12
++
++static bool8 IsPersistentShinySparkleSprite(u8 spriteId);
++
++static bool8 IsPersistentSparklePixelVisible(const struct Sprite *sprite, s16 x, s16 y)
++{
++    u16 width, height, tile, pixel;
++    const u8 *graphics;
++    u8 value;
++
++    if (sprite->oam.affineMode != ST_OAM_AFFINE_OFF || sprite->oam.bpp != ST_OAM_4BPP)
++        return FALSE;
++
++    width = gOamDimensions[sprite->oam.shape][sprite->oam.size].width;
++    height = gOamDimensions[sprite->oam.shape][sprite->oam.size].height;
++    if (x < 0 || y < 0 || x >= width || y >= height)
++        return FALSE;
++
++    if (sprite->oam.matrixNum & 8)
++        x = width - 1 - x;
++    if (sprite->oam.matrixNum & 16)
++        y = height - 1 - y;
++
++    tile = (y / 8) * (width / 8) + x / 8;
++    pixel = (y % 8) * 8 + x % 8;
++    graphics = (const u8 *)OBJ_VRAM0 + (sprite->oam.tileNum + tile) * TILE_SIZE_4BPP;
++    value = graphics[pixel / 2];
++    return ((pixel & 1 ? value >> 4 : value) & 15) != 0;
++}
++
++static bool8 IsPersistentSparkleEdgePixel(const struct Sprite *sprite, s16 x, s16 y)
++{
++    s16 dx, dy;
++
++    if (IsPersistentSparklePixelVisible(sprite, x, y))
++        return FALSE;
++
++    for (dy = -2; dy <= 2; dy++)
++        for (dx = -2; dx <= 2; dx++)
++            if (dx * dx + dy * dy <= 4 && IsPersistentSparklePixelVisible(sprite, x + dx, y + dy))
++                return TRUE;
++
++    return FALSE;
++}
++
++static bool8 PickPersistentSparklePosition(const struct Sprite *sprite, const struct ObjectEventGraphicsInfo *graphicsInfo, const struct Task *task, s16 *x, s16 *y)
++{
++    u16 width = graphicsInfo->width;
++    u16 height = graphicsInfo->height;
++    s16 minSeparation = 10;
++    u8 i;
++
++    if (width >= 64 || height >= 64)
++        minSeparation = 12;
++
++    for (i = 0; i < 32; i++)
++    {
++        s16 px = Random() % width;
++        s16 py = Random() % height;
++        s16 candidateX;
++        s16 candidateY;
++        u8 slot;
++        bool8 wantEdge = (Random() % 100) < 15;
++        bool8 tooClose = FALSE;
++
++        if (wantEdge)
++        {
++            if (!IsPersistentSparkleEdgePixel(sprite, px, py))
++                continue;
++        }
++        else if (!IsPersistentSparklePixelVisible(sprite, px, py))
++        {
++            continue;
++        }
++
++        candidateX = px - width / 2;
++        candidateY = py - height / 2;
++
++        for (slot = 0; slot < PERSISTENT_SPARKLE_SLOT_COUNT; slot++)
++        {
++            s16 sparkleId = task->data[1 + slot];
++            s16 sparkleX;
++            s16 sparkleY;
++            s16 dx;
++            s16 dy;
++
++            if (!IsPersistentShinySparkleSprite(sparkleId))
++                continue;
++
++            sparkleX = gSprites[sparkleId].x - sprite->x - sprite->x2;
++            sparkleY = gSprites[sparkleId].y - sprite->y - sprite->y2;
++            dx = candidateX - sparkleX;
++            dy = candidateY - sparkleY;
++
++            if (dx * dx + dy * dy < minSeparation * minSeparation)
++            {
++                tooClose = TRUE;
++                break;
++            }
++        }
++
++        if (tooClose)
++            continue;
++
++        *x = candidateX;
++        *y = candidateY;
++        return TRUE;
++    }
++
++    return FALSE;
++}
++
++static u8 SpawnPersistentShinySparkle(s16 x, s16 y, u8 subpriority)
++{
++    u32 spriteId;
++
++    FieldEffect_LoadFadedPalette((struct SpritePalette *)&gSpritePalette_PersistentGlint, COLOR_MAP_DARK_CONTRAST);
++    spriteId = CreateSpriteAtEndUnchecked(&gFieldEffectObjectTemplate_PersistentShinySparkle, x, y, subpriority);
++
++    if (spriteId == MAX_SPRITES)
++        return MAX_SPRITES;
++
++    gSprites[spriteId].coordOffsetEnabled = TRUE;
++    gSprites[spriteId].data[7] = PERSISTENT_SPARKLE_MARKER;
++    return spriteId;
++}
++
++static struct Sprite *GetPersistentShinyObjectSprite(u8 objectEventId)
++{
++    struct ObjectEvent *objectEvent;
++
++    if (objectEventId >= OBJECT_EVENTS_COUNT)
++        return NULL;
++
++    objectEvent = &gObjectEvents[objectEventId];
++    if (!objectEvent->active || objectEvent->spriteId >= MAX_SPRITES || !gSprites[objectEvent->spriteId].inUse)
++        return NULL;
++
++    return &gSprites[objectEvent->spriteId];
++}
++
++static bool8 IsPersistentShinySparkleTarget(u8 objectEventId)
++{
++    struct ObjectEvent *objectEvent;
++
++    if (objectEventId >= OBJECT_EVENTS_COUNT)
++        return FALSE;
++
++    objectEvent = &gObjectEvents[objectEventId];
++    return objectEvent->active && (objectEvent->graphicsId & OBJ_EVENT_MON) && OW_SHINY(objectEvent);
++}
++
++static bool8 IsPersistentShinySparkleSprite(u8 spriteId)
++{
++    return spriteId < MAX_SPRITES
++        && gSprites[spriteId].inUse
++        && gSprites[spriteId].template == &gFieldEffectObjectTemplate_PersistentShinySparkle
++        && gSprites[spriteId].data[7] == PERSISTENT_SPARKLE_MARKER;
++}
++
++static void DestroyPersistentShinySparkleSlot(s16 *spriteId)
++{
++    if (*spriteId < MAX_SPRITES && IsPersistentShinySparkleSprite(*spriteId))
++        DestroySprite(&gSprites[*spriteId]);
++    *spriteId = MAX_SPRITES;
++}
++
++static void Task_PersistentShinySparkle(u8 taskId)
++{
++    struct Task *task = &gTasks[taskId];
++    u8 objectEventId = task->data[5];
++    struct ObjectEvent *objectEvent;
++    struct Sprite *targetSprite;
++    const struct ObjectEventGraphicsInfo *graphicsInfo;
++    s16 *slot;
++    s16 offsetX;
++    s16 offsetY;
++    u8 i;
++
++    if (objectEventId >= OBJECT_EVENTS_COUNT || !gObjectEvents[objectEventId].active)
++    {
++        for (i = 0; i < PERSISTENT_SPARKLE_SLOT_COUNT; i++)
++            DestroyPersistentShinySparkleSlot(&task->data[1 + i]);
++        DestroyTask(taskId);
++        return;
++    }
++
++    objectEvent = &gObjectEvents[objectEventId];
++    if (!IsPersistentShinySparkleTarget(objectEventId) || objectEvent->invisible)
++    {
++        for (i = 0; i < PERSISTENT_SPARKLE_SLOT_COUNT; i++)
++            DestroyPersistentShinySparkleSlot(&task->data[1 + i]);
++        return;
++    }
++
++    targetSprite = GetPersistentShinyObjectSprite(objectEventId);
++    if (targetSprite == NULL)
++        return;
++
++    if (task->data[6] != objectEvent->spriteId || task->data[7] != objectEvent->graphicsId)
++    {
++        for (i = 0; i < PERSISTENT_SPARKLE_SLOT_COUNT; i++)
++            DestroyPersistentShinySparkleSlot(&task->data[1 + i]);
++        task->data[6] = objectEvent->spriteId;
++        task->data[7] = objectEvent->graphicsId;
++        task->data[0] = 0;
++        task->data[8] = 0;
++        return;
++    }
++
++    for (i = 0; i < PERSISTENT_SPARKLE_SLOT_COUNT; i++)
++        if (task->data[1 + i] < MAX_SPRITES && !IsPersistentShinySparkleSprite(task->data[1 + i]))
++            task->data[1 + i] = MAX_SPRITES;
++
++    if (++task->data[0] < PERSISTENT_SPARKLE_PERIOD)
++        return;
++
++    task->data[0] = 0;
++    slot = &task->data[1 + (task->data[8] & 3)];
++    if (*slot < MAX_SPRITES)
++        return;
++
++    graphicsInfo = GetObjectEventGraphicsInfo(objectEvent->graphicsId);
++    if (!PickPersistentSparklePosition(targetSprite, graphicsInfo, task, &offsetX, &offsetY))
++        return;
++
++    *slot = SpawnPersistentShinySparkle(
++        targetSprite->x + targetSprite->x2 + offsetX,
++        targetSprite->y + targetSprite->y2 + offsetY,
++        targetSprite->subpriority > 0 ? targetSprite->subpriority - 1 : 0);
++
++    if (*slot < MAX_SPRITES)
++        task->data[8] = (task->data[8] + 1) & 3;
++}
++
++static bool8 IsPersistentShinySparkleTaskForObject(u8 taskId, u8 objectEventId)
++{
++    return gTasks[taskId].func == Task_PersistentShinySparkle && gTasks[taskId].data[5] == objectEventId;
++}
++
++static bool8 StartPersistentShinySparkleForObject(u8 objectEventId)
++{
++    struct Sprite *targetSprite;
++    u8 taskId;
++
++    if (!IsPersistentShinySparkleTarget(objectEventId))
++        return FALSE;
++
++    targetSprite = GetPersistentShinyObjectSprite(objectEventId);
++    if (targetSprite == NULL)
++        return FALSE;
++
++    for (taskId = 0; taskId < NUM_TASKS; taskId++)
++        if (IsPersistentShinySparkleTaskForObject(taskId, objectEventId))
++            return TRUE;
++
++    taskId = CreateTask(Task_PersistentShinySparkle, 81);
++    gTasks[taskId].data[0] = 0;
++    gTasks[taskId].data[1] = MAX_SPRITES;
++    gTasks[taskId].data[2] = MAX_SPRITES;
++    gTasks[taskId].data[3] = MAX_SPRITES;
++    gTasks[taskId].data[4] = MAX_SPRITES;
++    gTasks[taskId].data[5] = objectEventId;
++    gTasks[taskId].data[6] = gObjectEvents[objectEventId].spriteId;
++    gTasks[taskId].data[7] = gObjectEvents[objectEventId].graphicsId;
++    gTasks[taskId].data[8] = 0;
++    return TRUE;
++}
++
++void StartPersistentShinySparkles(void)
++{
++    u8 objectEventId;
++
++    for (objectEventId = 0; objectEventId < OBJECT_EVENTS_COUNT; objectEventId++)
++        StartPersistentShinySparkleForObject(objectEventId);
++}
