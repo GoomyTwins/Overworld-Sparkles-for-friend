@@ -1,8 +1,5 @@
 # Overworld Sparkles for Friend
 
-Standalone export of the persistent, sprite-aware shiny overworld sparkle system developed for a Pokémon Emerald decomp project.
-
-This repository intentionally contains only the reusable sparkle feature and its assets. It has no Git ancestry, submodule, branch relationship, or access path to the private source repository it was extracted from.
 
 Included behavior:
 - persistent sparkle streams for shiny overworld Pokémon / followers
